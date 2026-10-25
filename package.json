@@ -1,0 +1,51 @@
+{
+  "name": "@seriouslysean/openclaw-local-images",
+  "version": "0.1.0",
+  "private": true,
+  "description": "OpenClaw plugin that generates images through a local image server on loopback, with several models the agent picks per call.",
+  "keywords": [
+    "openclaw",
+    "openclaw-plugin",
+    "image-generation",
+    "local"
+  ],
+  "homepage": "https://github.com/seriouslysean/openclaw-local-images#readme",
+  "bugs": "https://github.com/seriouslysean/openclaw-local-images/issues",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/seriouslysean/openclaw-local-images.git"
+  },
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24.16"
+  },
+  "scripts": {
+    "lint": "oxlint .",
+    "lint:fix": "oxlint . --fix",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "node --test --experimental-test-coverage --test-coverage-include='src/**' --test-coverage-lines=80 --test-coverage-branches=85 --test-coverage-functions=80 'test/*.test.ts'"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.10.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.2",
+    "openclaw": "2026.10.3",
+    "oxlint": "1.88.0",
+    "typescript": "7.0.2"
+  },
+  "openclaw": {
+    "extensions": [
+      "./src/index.ts"
+    ],
+    "compat": {
+      "pluginApi": ">=2026.10.3",
+      "minGatewayVersion": "2026.10.3"
+    },
+    "build": {
+      "openclawVersion": "2026.10.3",
+      "pluginSdkVersion": "2026.10.3"
+    }
+  }
+}

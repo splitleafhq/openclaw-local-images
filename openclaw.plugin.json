@@ -1,0 +1,34 @@
+{
+  "id": "local-images",
+  "name": "Local Images",
+  "description": "Image generation through a local image server on loopback, with several models the agent picks per call.",
+  "contracts": {
+    "imageGenerationProviders": [
+      "local-images"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+      "baseUrl",
+      "models"
+    ],
+    "properties": {
+      "baseUrl": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The image server's base URL. Loopback only (127.0.0.1, [::1] or localhost); any other host leaves the provider unconfigured."
+      },
+      "models": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minItems": 1,
+        "description": "Model ids the image server serves. The first is the default; the agent picks another per call with model=local-images/<id>."
+      }
+    }
+  }
+}
