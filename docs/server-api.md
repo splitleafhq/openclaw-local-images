@@ -22,7 +22,7 @@ Response `200` (JSON):
 | `images` | array | `{ "pngBase64": string, "seed": number }`, at least one |
 | `timings` | object, optional | `waitSeconds` (queued behind another image), `loadSeconds` (cold load or model swap), `generateSeconds` |
 
-Response `429` (JSON `{ "reason": "busy", "error": string }`, header `Retry-After` in seconds): a heavy model was requested while any other image request is queued or rendering. Heavy models run only alone. `Retry-After` is the heavy model's typical render time. `error` names a light model to use instead.
+Response `429` (JSON `{ "reason": "busy", "error": string }`, header `Retry-After` in seconds): a heavy model was requested and it could not start. Heavy models run only alone. A heavy request waits up to the server's `heavyWaitSeconds` (default 60) for in-flight images to finish, holding a reservation: images arriving meanwhile queue behind it. It is refused with 429 when that wait runs out, or at once when another heavy request is already waiting or rendering. Light requests never get 429; they wait behind a heavy one. `Retry-After` is the heavy model's typical render time. `error` names a light model to use instead.
 
 Response `413` (JSON `{ "reason": "too_large", "error": string }`): the request body is over 25 MB. The server refuses it without reading it.
 
