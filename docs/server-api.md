@@ -22,6 +22,10 @@ Response `200` (JSON):
 | `images` | array | `{ "pngBase64": string, "seed": number }`, at least one |
 | `timings` | object, optional | `waitSeconds` (queued behind another image), `loadSeconds` (cold load or model swap), `generateSeconds` |
 
+Response `429` (JSON `{ "reason": "busy", "error": string }`, header `Retry-After` in seconds): a heavy model was requested while any other image request is queued or rendering. Heavy models run only alone. `Retry-After` is the heavy model's typical render time. `error` names a light model to use instead.
+
+Response `413` (JSON `{ "reason": "too_large", "error": string }`): the request body is over 25 MB. The server refuses it without reading it.
+
 Any other status is an error; the plugin passes the status and the first 300 characters of the body to the agent.
 
 ## Expected server behaviour
