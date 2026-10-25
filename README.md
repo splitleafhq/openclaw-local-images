@@ -1,6 +1,6 @@
 # openclaw-local-images
 
-An OpenClaw plugin that generates images through a local image server on loopback. You configure the models the server serves; the agent picks one per call.
+An OpenClaw plugin that generates and edits images through a local image server on loopback. You configure the models the server serves; the agent picks one per call.
 
 ## Install
 
@@ -43,7 +43,7 @@ Any server that speaks [the image server API](docs/server-api.md). The plugin on
 
 ## Limits
 
-- No editing: requests with an input image are refused.
+- Editing: one reference image per request (`image_generate image=<path>`); the server decides how each model uses it.
 - Sizes: 1024×1024, 832×1216, 1216×832, 768×1344, 1344×768; an aspect ratio maps to the nearest of these.
 
 See [verification](docs/verification.md) for what's been checked against a live gateway.

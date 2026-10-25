@@ -114,9 +114,22 @@ test('a response without image data is an error, not an empty success', async ()
   await assert.rejects(generate(request(), config(empty.baseUrl)), /no images/);
 });
 
-test('an edit request is refused, since no model takes an input image', async () => {
+test('an edit request sends its reference image to the server as base64', async () => {
   const server = await imageServer((body, res) => json(res, 200, ok(String(body.model), 1)));
-  await assert.rejects(generate(request({ inputImages: [{ buffer: PNG, mimeType: 'image/png' }] }), config(server.baseUrl)), /editing is not supported/);
+  await generate(request({ inputImages: [{ buffer: PNG, mimeType: 'image/png' }] }), config(server.baseUrl));
+  assert.deepEqual(server.bodies[0]?.inputImage, { base64: PNG.toString('base64'), mimeType: 'image/png' });
+});
+
+test('a plain generate request carries no reference image', async () => {
+  const server = await imageServer((body, res) => json(res, 200, ok(String(body.model), 1)));
+  await generate(request(), config(server.baseUrl));
+  assert.equal('inputImage' in (server.bodies[0] ?? {}), false);
+});
+
+test('more than one reference image is refused before any request', async () => {
+  const server = await imageServer((body, res) => json(res, 200, ok(String(body.model), 1)));
+  const img = { buffer: PNG, mimeType: 'image/png' };
+  await assert.rejects(generate(request({ inputImages: [img, img] }), config(server.baseUrl)), /at most 1 reference image/);
   assert.equal(server.bodies.length, 0);
 });
 
@@ -133,7 +146,8 @@ test('register lists the configured models with the first as default', () => {
   registerLocalImages(api);
   assert.equal(registered[0]?.defaultModel, 'everyday');
   assert.deepEqual(registered[0]?.models, ['everyday', 'realism']);
-  assert.equal(registered[0]?.capabilities.edit.enabled, false);
+  assert.equal(registered[0]?.capabilities.edit.enabled, true);
+  assert.equal(registered[0]?.capabilities.edit.maxInputImages, 1);
   assert.equal(registered[0]?.isConfigured?.({}), true);
 });
 

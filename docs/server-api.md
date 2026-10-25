@@ -12,6 +12,7 @@ Request (JSON):
 | `prompt` | string | Passed through unchanged |
 | `width`, `height` | integer | One of the sizes in `src/provider.ts` (`SIZES`) |
 | `count` | integer | 1–4 |
+| `inputImage` | object, optional | `{ "base64": string, "mimeType": string }`: a reference image to edit or build from (a sketch, an earlier result). The server decides what the model does with it (edit, or refine at a set strength) |
 
 Response `200` (JSON):
 

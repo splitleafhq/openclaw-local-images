@@ -21,6 +21,7 @@ const ASPECT_RATIOS: Record<string, string> = {
 
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_COUNT = 4;
+const MAX_INPUT_IMAGES = 1;
 
 export interface Config {
   baseUrl: string;
@@ -138,8 +139,9 @@ export function describe(model: string, seed: number, timings: Timings): string 
 }
 
 export async function generate(req: ImageGenerationRequest, config: Config): Promise<ImageGenerationResult> {
-  if (req.inputImages && req.inputImages.length > 0) {
-    throw new Error(`${PROVIDER_ID}: editing is not supported`);
+  const inputs = req.inputImages ?? [];
+  if (inputs.length > MAX_INPUT_IMAGES) {
+    throw new Error(`${PROVIDER_ID}: at most ${MAX_INPUT_IMAGES} reference image per request`);
   }
   const model = resolveModel(req.model, config);
   const { width, height } = resolveSize(req);
@@ -147,7 +149,14 @@ export async function generate(req: ImageGenerationRequest, config: Config): Pro
   const response = await fetch(`${config.baseUrl}/v1/images`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ model, prompt: req.prompt, width, height, count }),
+    body: JSON.stringify({
+      model,
+      prompt: req.prompt,
+      width,
+      height,
+      count,
+      ...(inputs[0] ? { inputImage: { base64: inputs[0].buffer.toString('base64'), mimeType: inputs[0].mimeType } } : {}),
+    }),
     signal: AbortSignal.timeout(req.timeoutMs ?? DEFAULT_TIMEOUT_MS),
   });
   const text = await response.text();
@@ -184,7 +193,7 @@ export function createProvider(getConfig: () => Config | undefined): ImageGenera
     defaultTimeoutMs: DEFAULT_TIMEOUT_MS,
     capabilities: {
       generate: { maxCount: MAX_COUNT, supportsSize: true, supportsAspectRatio: true },
-      edit: { enabled: false },
+      edit: { enabled: true, maxCount: MAX_COUNT, maxInputImages: MAX_INPUT_IMAGES, supportsSize: true, supportsAspectRatio: true },
       geometry: { sizes: SIZES, aspectRatios: Object.keys(ASPECT_RATIOS) },
       output: { formats: ['png'] },
     },
