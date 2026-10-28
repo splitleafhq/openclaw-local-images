@@ -5,8 +5,11 @@ An OpenClaw plugin that generates and edits images through a local image server 
 ## Install
 
 ```sh
-openclaw plugins install <path-to-this-repo>
+openclaw plugins install git:file:///path/to/openclaw-local-images@<tag or commit> --force --accept-capabilities
+openclaw plugins inspect local-images --runtime --json
 ```
+
+OpenClaw loads the committed `dist/` through `openclaw.runtimeExtensions`, from a git install, a copy, a load path or `--link` alike (`docs/plugins/sdk-entrypoints/package-entries.md:36-38`, 2026.10.8), checked on 2026.10.8: an install runs npm without scripts, so nothing is built then, and a change to `src/` runs only after `npm run build`. `--force` confirms a source that isn't on ClawHub, and `--accept-capabilities` the image provider.
 
 ## Configure
 
