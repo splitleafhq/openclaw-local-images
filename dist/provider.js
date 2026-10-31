@@ -11,6 +11,15 @@ const ASPECT_RATIOS = {
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_COUNT = 4;
 const MAX_INPUT_IMAGES = 1;
+/** A seed number with its exact decimal text from the response: seeds can exceed 2^53, which a JS number rounds. */
+class Seed {
+    value;
+    text;
+    constructor(value, text) {
+        this.value = value;
+        this.text = text;
+    }
+}
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -24,6 +33,10 @@ export function isLoopbackUrl(value) {
         return false;
     }
     if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return false;
+    }
+    // Request paths are appended to baseUrl as text, so a query or fragment would swallow them, and fetch refuses credentials.
+    if (url.username || url.password || url.href.includes('?') || url.href.includes('#')) {
         return false;
     }
     return url.hostname === '127.0.0.1' || url.hostname === '[::1]' || url.hostname === 'localhost';
@@ -71,7 +84,7 @@ function parseResponse(body) {
     }
     const images = [];
     for (const image of body.images) {
-        if (!isRecord(image) || typeof image.pngBase64 !== 'string' || typeof image.seed !== 'number') {
+        if (!isRecord(image) || typeof image.pngBase64 !== 'string' || !(image.seed instanceof Seed)) {
             throw new Error(`${PROVIDER_ID}: the image server returned an image without data or seed`);
         }
         images.push({ pngBase64: image.pngBase64, seed: image.seed });
@@ -99,6 +112,22 @@ export function describe(model, seed, timings) {
     }
     return parts.join(' · ');
 }
+/** JSON.parse reviver; `context.source` is the value's raw text (Node 21+, TC39 JSON.parse source text access). */
+function readSeed(key, value, context) {
+    if (key === 'seed' && typeof value === 'number' && context?.source !== undefined) {
+        return new Seed(value, context.source);
+    }
+    return value;
+}
+function describeFetchError(error, baseUrl, timeoutMs) {
+    if (error instanceof Error && error.name === 'TimeoutError') {
+        return `the image server did not answer within ${timeoutMs} ms`;
+    }
+    const cause = error instanceof Error && error.cause instanceof Error ? error.cause : undefined;
+    const code = cause && 'code' in cause && typeof cause.code === 'string' ? ` (${cause.code})` : '';
+    const message = error instanceof Error ? error.message : String(error);
+    return `could not reach the image server at ${baseUrl}: ${message}${code}`;
+}
 export async function generate(req, config) {
     const inputs = req.inputImages ?? [];
     if (inputs.length > MAX_INPUT_IMAGES) {
@@ -107,26 +136,34 @@ export async function generate(req, config) {
     const model = resolveModel(req.model, config);
     const { width, height } = resolveSize(req);
     const count = Math.min(Math.max(req.count ?? 1, 1), MAX_COUNT);
-    const response = await fetch(`${config.baseUrl}/v1/images`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-            model,
-            prompt: req.prompt,
-            width,
-            height,
-            count,
-            ...(inputs[0] ? { inputImage: { base64: inputs[0].buffer.toString('base64'), mimeType: inputs[0].mimeType } } : {}),
-        }),
-        signal: AbortSignal.timeout(req.timeoutMs ?? DEFAULT_TIMEOUT_MS),
-    });
-    const text = await response.text();
+    const timeoutMs = req.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+    let response;
+    let text;
+    try {
+        response = await fetch(`${config.baseUrl}/v1/images`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+                model,
+                prompt: req.prompt,
+                width,
+                height,
+                count,
+                ...(inputs[0] ? { inputImage: { base64: inputs[0].buffer.toString('base64'), mimeType: inputs[0].mimeType } } : {}),
+            }),
+            signal: AbortSignal.timeout(timeoutMs),
+        });
+        text = await response.text();
+    }
+    catch (error) {
+        throw new Error(`${PROVIDER_ID}: ${describeFetchError(error, config.baseUrl, timeoutMs)}`, { cause: error });
+    }
     if (!response.ok) {
         throw new Error(`${PROVIDER_ID}: the image server answered ${response.status}: ${text.slice(0, 300)}`);
     }
     let body;
     try {
-        body = JSON.parse(text);
+        body = JSON.parse(text, readSeed);
     }
     catch (error) {
         throw new Error(`${PROVIDER_ID}: the image server returned invalid JSON`, { cause: error });
@@ -134,12 +171,13 @@ export async function generate(req, config) {
     const parsed = parseResponse(body);
     const timings = parsed.timings ?? {};
     const images = parsed.images.map((image) => {
-        const caption = describe(parsed.model, image.seed, timings);
+        const seed = Number.isSafeInteger(image.seed.value) ? image.seed.value : image.seed.text;
+        const caption = describe(parsed.model, seed, timings);
         return {
             buffer: Buffer.from(image.pngBase64, 'base64'),
             mimeType: 'image/png',
-            fileName: `${parsed.model}-${image.seed}.png`,
-            metadata: { model: parsed.model, seed: image.seed, timings, caption },
+            fileName: `${parsed.model}-${seed}.png`,
+            metadata: { model: parsed.model, seed, timings, caption },
         };
     });
     return { images, model: parsed.model, metadata: { timings } };
