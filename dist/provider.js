@@ -11,6 +11,7 @@ const ASPECT_RATIOS = {
 const DEFAULT_TIMEOUT_MS = 300_000;
 const MAX_COUNT = 4;
 const MAX_INPUT_IMAGES = 1;
+const PNG_SIGNATURE = Buffer.from('89504e470d0a1a0a', 'hex');
 function isRecord(value) {
     return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -134,9 +135,14 @@ export async function generate(req, config) {
     const parsed = parseResponse(body);
     const timings = parsed.timings ?? {};
     const images = parsed.images.map((image) => {
+        // Base64 decoding never throws: an empty or garbled string decodes to an empty or wrong buffer.
+        const buffer = Buffer.from(image.pngBase64, 'base64');
+        if (!buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+            throw new Error(`${PROVIDER_ID}: the image server returned image data that is not a PNG (seed ${image.seed})`);
+        }
         const caption = describe(parsed.model, image.seed, timings);
         return {
-            buffer: Buffer.from(image.pngBase64, 'base64'),
+            buffer,
             mimeType: 'image/png',
             fileName: `${parsed.model}-${image.seed}.png`,
             metadata: { model: parsed.model, seed: image.seed, timings, caption },
