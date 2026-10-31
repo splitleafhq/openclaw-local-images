@@ -2,6 +2,8 @@
 
 The plugin talks to one HTTP server on loopback. Any runtime can sit behind it (MLX, Draw Things, PyTorch); the server owns loading, unloading and the per-image log.
 
+`baseUrl` is the server's origin and an optional path: a query, fragment or credentials leave the provider unconfigured.
+
 ## `POST /v1/images`
 
 Request (JSON):
@@ -19,7 +21,7 @@ Response `200` (JSON):
 | Field | Type | Notes |
 |---|---|---|
 | `model` | string | The model that ran |
-| `images` | array | `{ "pngBase64": string, "seed": number }`, at least one. `pngBase64` must decode to data starting with the PNG signature; anything else, an empty string included, fails the whole request |
+| `images` | array | `{ "pngBase64": string, "seed": number }`, at least one. `pngBase64` must decode to data starting with the PNG signature; anything else, an empty string included, fails the whole request. A seed above 2^53 − 1 keeps its exact digits: the plugin reads it from the response text and puts it in the image metadata as a decimal string |
 | `timings` | object, optional | `waitSeconds` (queued behind another image), `loadSeconds` (cold load or model swap), `generateSeconds` |
 
 Response `429` (JSON `{ "reason": "busy", "error": string }`, header `Retry-After` in seconds): a heavy model was requested and it could not start. Heavy models run only alone. A heavy request waits up to the server's `heavyWaitSeconds` (default 60) for in-flight images to finish, holding a reservation: images arriving meanwhile queue behind it. It is refused with 429 when that wait runs out, or at once when another heavy request is already waiting or rendering. Light requests never get 429; they wait behind a heavy one. `Retry-After` is the heavy model's typical render time. `error` names a light model to use instead.

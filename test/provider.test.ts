@@ -59,6 +59,13 @@ test('a non-loopback baseUrl leaves the provider unconfigured, so prompts never 
   assert.equal(isLoopbackUrl('http://[::1]:7860'), true);
 });
 
+test('a loopback baseUrl with a query, fragment or credentials leaves the provider unconfigured, since every request to it would break', () => {
+  for (const baseUrl of ['http://127.0.0.1:7860?x=1', 'http://127.0.0.1:7860?', 'http://127.0.0.1:7860#top', 'http://u:p@127.0.0.1:7860', 'http://u@127.0.0.1:7860']) {
+    assert.equal(resolveConfig({ baseUrl, models: ['everyday'] }), undefined, baseUrl);
+  }
+  assert.equal(isLoopbackUrl('http://127.0.0.1:7860/api'), true);
+});
+
 test('config without models is unconfigured; duplicates and a trailing slash are dropped', () => {
   assert.equal(resolveConfig({ baseUrl: 'http://127.0.0.1:7860', models: [] }), undefined);
   assert.equal(resolveConfig({ baseUrl: 'http://127.0.0.1:7860' }), undefined);
@@ -96,6 +103,38 @@ test('generate sends the picked model and returns PNGs naming model, seed and ti
   assert.equal(result.images[0]?.metadata?.caption, 'realism · seed 40 · 6.0 s');
 });
 
+test('a seed above 2^53 keeps every digit in the caption, file name and metadata', async () => {
+  const server = await imageServer((_body, res) => {
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(`{"model":"everyday","images":[{"pngBase64":"${PNG.toString('base64')}","seed":18446744073709551615}]}`);
+  });
+  const result = await generate(request(), config(server.baseUrl));
+  assert.equal(result.images[0]?.fileName, 'everyday-18446744073709551615.png');
+  assert.equal(result.images[0]?.metadata?.seed, '18446744073709551615');
+  assert.equal(result.images[0]?.metadata?.caption, 'everyday · seed 18446744073709551615');
+});
+
+test('a seed sent as a JSON string is refused like any malformed seed', async () => {
+  const server = await imageServer((_body, res) => json(res, 200, { model: 'everyday', images: [{ pngBase64: PNG.toString('base64'), seed: '7' }] }));
+  await assert.rejects(generate(request(), config(server.baseUrl)), /without data or seed/);
+});
+
+test('an unreachable server fails with the provider prefix and the connection error', async () => {
+  const closed = await imageServer(() => {});
+  const port = new URL(closed.baseUrl).port;
+  await new Promise((resolve) => servers.pop()?.close(resolve));
+  await assert.rejects(generate(request(), config(`http://127.0.0.1:${port}`)), /^Error: local-images: could not reach the image server.*ECONNREFUSED/);
+});
+
+test('a server that never answers fails with the provider prefix and the timeout', async () => {
+  const pending: ServerResponse[] = [];
+  const server = await imageServer((_body, res) => pending.push(res));
+  await assert.rejects(generate(request({ timeoutMs: 50 }), config(server.baseUrl)), /^Error: local-images: the image server did not answer within 50 ms/);
+  for (const res of pending) {
+    res.end();
+  }
+});
+
 test('more images than the provider allows are capped at four', async () => {
   const server = await imageServer((body, res) => json(res, 200, ok(String(body.model), Number(body.count))));
   await generate(request({ count: 9 }), config(server.baseUrl));
@@ -116,7 +155,7 @@ test('a response without image data is an error, not an empty success', async ()
   await assert.rejects(generate(request(), config(blank.baseUrl)), /not a PNG/);
   const jpeg = Buffer.from('ffd8ffe000104a46', 'hex').toString('base64');
   const notPng = await imageServer((_body, res) => json(res, 200, { model: 'everyday', images: [{ pngBase64: jpeg, seed: 1 }] }));
-  await assert.rejects(generate(request(), config(notPng.baseUrl)), /not a PNG/);
+  await assert.rejects(generate(request(), config(notPng.baseUrl)), /not a PNG \(seed 1\)/);
 });
 
 test('an edit request sends its reference image to the server as base64', async () => {
