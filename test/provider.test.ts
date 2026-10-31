@@ -112,6 +112,11 @@ test('a response without image data is an error, not an empty success', async ()
   await assert.rejects(generate(request(), config(server.baseUrl)), /without data or seed/);
   const empty = await imageServer((_body, res) => json(res, 200, { model: 'everyday', images: [] }));
   await assert.rejects(generate(request(), config(empty.baseUrl)), /no images/);
+  const blank = await imageServer((_body, res) => json(res, 200, { model: 'everyday', images: [{ pngBase64: '', seed: 1 }] }));
+  await assert.rejects(generate(request(), config(blank.baseUrl)), /not a PNG/);
+  const jpeg = Buffer.from('ffd8ffe000104a46', 'hex').toString('base64');
+  const notPng = await imageServer((_body, res) => json(res, 200, { model: 'everyday', images: [{ pngBase64: jpeg, seed: 1 }] }));
+  await assert.rejects(generate(request(), config(notPng.baseUrl)), /not a PNG/);
 });
 
 test('an edit request sends its reference image to the server as base64', async () => {
