@@ -1,6 +1,6 @@
 {
-  "name": "@seriouslysean/openclaw-local-images",
-  "version": "0.1.0",
+  "name": "@splitleafhq/openclaw-local-images",
+  "version": "0.1.1",
   "private": true,
   "description": "OpenClaw plugin that generates images through a local image server on loopback, with several models the agent picks per call.",
   "keywords": [
@@ -9,11 +9,11 @@
     "image-generation",
     "local"
   ],
-  "homepage": "https://github.com/seriouslysean/openclaw-local-images#readme",
-  "bugs": "https://github.com/seriouslysean/openclaw-local-images/issues",
+  "homepage": "https://github.com/splitleafhq/openclaw-local-images#readme",
+  "bugs": "https://github.com/splitleafhq/openclaw-local-images/issues",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/seriouslysean/openclaw-local-images.git"
+    "url": "git+https://github.com/splitleafhq/openclaw-local-images.git"
   },
   "type": "module",
   "license": "MIT",

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.1
 
 - A loopback `baseUrl` with a query, fragment or credentials leaves the provider unconfigured instead of breaking every request.
 - A seed above 2^53 − 1 keeps its exact digits in the caption, file name and metadata (as a decimal string).
