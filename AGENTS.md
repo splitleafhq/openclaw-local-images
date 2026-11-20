@@ -16,5 +16,5 @@ Rules for working in this repo.
 12. Keep runtime dependencies at zero; import only `node:` built-ins and `openclaw/plugin-sdk/*`.
 13. A comment states a constraint the code can't show, never what the next line does.
 14. Write terse, factual prose.
-15. Commit, push and open pull requests on the user's behalf; merging, tagging and releasing each need their own approval.
+15. Commit, push and open pull requests on the user's behalf; merging, tagging and releasing each need their own approval. Dependabot pull requests are the exception: CI's `automerge` job squash-merges a patch or minor update once every check passes; a major waits for approval.
 16. Keep agent-session links and session trailers out of commit messages, issues and pull request bodies.
